@@ -14,7 +14,19 @@ from django.core.files.storage import default_storage
 
 from . import model_um3
 
-TMP_FILE_PATH = os.path.join("var","www","vp","web-server---django","tmp")
+TMP_FILE_PATH = os.path.join("tmp")
+
+def parse_vp_float(val):
+  if val == '' or val == None:
+    return None
+  else:
+    return float(val)
+
+def parse_vp_int(val):
+  if val == '' or val == None:
+    return None
+  else:
+    return int(val)
 
 def index(request):
     
@@ -162,6 +174,17 @@ def get_similarity_profile(val):
   else:
     return model_um3.params.ModelParameters.SimilarityProfile.DEFAULT
 
+def get_ff_diffusivity_type(val):
+  """
+  Obtain far field diffusivity enumberated type.
+  """
+  if val == 'CONSTANT':
+    return model_um3.params.ModelParameters.FarfieldDiffusivity.CONSTANT
+  elif val == '':
+    return model_um3.params.ModelParameters.FarfieldDiffusivity.POWER_4_3
+  else:
+   return model_um3.params.ModelParameters.FarfieldDiffusivity.DEFAULT
+
 def list2tuple(list):
   """
     Return a list as a tuple.
@@ -196,28 +219,26 @@ def load_model_params(post_data):
         return model_um3.params.ModelParameters.BacteriaModel.COLIFORM_301H
       case "enterococcus":
         return model_um3.params.ModelParameters.BacteriaModel.ENTEROCCOUS_301H
-       
-  # print(f"post_data['currentVectorAveraging']: {post_data['currentVectorAveraging']}")
-  # model_parameters -- all should be same defaults except where indicated
-  model_params.report_effective_dillution = post_data['reportEffectiveDillution'] # TODO: Check with Lawrence
-  model_params.current_vector_averaging   = post_data['currentVectorAveraging'] # TODO: Check with Lawrence
-  model_params.write_step_freq            = int(post_data['writeStepFreq'])
+
+  model_params.report_effective_dillution = post_data['reportEffectiveDillution']
+  model_params.current_vector_averaging   = post_data['currentVectorAveraging']
+  model_params.write_step_freq            = parse_vp_int(post_data['writeStepFreq'])
   model_params.max_reversals              = get_max_reversals(post_data['maxReverals'])
   model_params.stop_on_bottom_hit         = post_data['stopOnBottomHit'] == 'true'
   model_params.dont_stop_on_surface_hit   = post_data['dontStopOnSurfaceHit'] == 'true'
   model_params.allow_induced_current      = post_data['allowInducedCurrent'] == 'true'
-  model_params.max_dilution               = int(post_data['maxDilutionReported'])
+  model_params.max_dilution               = parse_vp_int(post_data['maxDilutionReported'])
 
   # model parameters (equation parameters)
   # print(f"post_data['diffPortContCoeff']: {post_data['diffPortContCoeff']}")
   if post_data['diffPortContCoeff'] != '' and  post_data['diffPortContCoeff'] != None:
-    model_params.contraction_coeff          = float(post_data['diffPortContCoeff']) # TODO: Check with Lawrence
+    model_params.contraction_coeff          = parse_vp_float(post_data['diffPortContCoeff'])
 
   if post_data['lightAbsorpCoeff'] != '' and post_data['lightAbsorpCoeff'] != None:
-    model_params.light_absorb_coeff         = float(post_data['lightAbsorpCoeff']) # TODO: Check with Lawrence
+    model_params.light_absorb_coeff         = parse_vp_float(post_data['lightAbsorpCoeff'])
 
   if post_data['um3AspCoeff'] != '' and post_data['um3AspCoeff'] != None:
-    model_params.aspiration_coeff           = float(post_data['um3AspCoeff']) # TODO: Check with Lawrence
+    model_params.aspiration_coeff           = parse_vp_float(post_data['um3AspCoeff'])
 
   model_params.bacteria_model             = get_bacterial_model(post_data['bacterialModelValue'])
   model_params.at_equilibrium             = post_data['eqOfState'] == 'S_T' # true means equation of state considers S,T (no pressure)
@@ -227,45 +248,41 @@ def load_model_params(post_data):
   model_params.brooks_far_field           = post_data['modelConfigType'] == 'brooks'
   model_params.estimate_ff_background     = post_data['estimateFarfieldBackground']
   model_params.output_all_ff_increments   = post_data['outputAllFarfieldTimeIncrements']
-  model_params.farfield_diffusivity       = post_data['farfieldDiffusivity']
-  model_params.ff_increment               = float(post_data['farfieldCoeff'])
+  model_params.farfield_diffusivity       = get_ff_diffusivity_type(post_data['farfieldDiffusivity'])
+  model_params.ff_increment               = parse_vp_float(post_data['farfieldCoeff'])
 
   # Tidal Pollution Buildup
 
   model_params.tidal_pollution_buildup    = post_data['modelConfigType'] == 'tidal'
 
   if post_data['tidalPollutantBuildup']['channel_width'] != '':
-    model_params.tpb_channel_width = float(post_data['tidalPollutantBuildup']['channel_width'])
+    model_params.tpb_channel_width = parse_vp_float(post_data['tidalPollutantBuildup']['channel_width'])
   else:
     model_params.tpb_channel_width = 100
 
-  # print(f"post_data['tidalPollutantBuildup']['segment_length'] {post_data['tidalPollutantBuildup']['segment_length']}")
   if post_data['tidalPollutantBuildup']['segment_length'] != '':
-    model_params.tpb_segment_length = float(post_data['tidalPollutantBuildup']['segment_length'])
+    model_params.tpb_segment_length = parse_vp_float(post_data['tidalPollutantBuildup']['segment_length'])
   
-  # print(f"post_data['tidalPollutantBuildup']['upstream_dir'] {post_data['tidalPollutantBuildup']['upstream_dir']}")
   if post_data['tidalPollutantBuildup']['upstream_dir'] != '':
-    model_params.tpb_upstream_dir = float(post_data['tidalPollutantBuildup']['upstream_dir'])
+    model_params.tpb_upstream_dir = parse_vp_float(post_data['tidalPollutantBuildup']['upstream_dir'])
 
-  # print(f"post_data['tidalPollutantBuildup']['coast_bin'] {post_data['tidalPollutantBuildup']['coast_bin']}")
   if post_data['tidalPollutantBuildup']['coast_bin'] != '':
-    model_params.tpb_coast_bin = int(post_data['tidalPollutantBuildup']['coast_bin'])
+    model_params.tpb_coast_bin = parse_vp_int(post_data['tidalPollutantBuildup']['coast_bin'])
 
-  # print(f"post_data['tidalPollutantBuildup']['coast_concentration'] {post_data['tidalPollutantBuildup']['coast_concentration']}")
   if post_data['tidalPollutantBuildup']['coast_concentration'] != '':
-    model_params.tpb_coast_concentration = float(post_data['tidalPollutantBuildup']['coast_concentration'])
+    model_params.tpb_coast_concentration = parse_vp_float(post_data['tidalPollutantBuildup']['coast_concentration'])
 
-  # print(f"post_data['tidalPollutantBuildup']['mixing_zone_ceil'] {post_data['tidalPollutantBuildup']['mixing_zone_ceil']}")
   if post_data['tidalPollutantBuildup']['mixing_zone_ceil'] != '':
-    model_params.tpb_mixing_zone_ceil = float(post_data['tidalPollutantBuildup']['mixing_zone_ceil'])
+    model_params.tpb_mixing_zone_ceil = parse_vp_float(post_data['tidalPollutantBuildup']['mixing_zone_ceil'])
 
   # Shore Vector
   model_params.use_shore_vector = post_data['useShoreVector']
-  model_params.dist_to_shore    = float(post_data['distToShore'])
-  model_params.dir_to_shore     = float(post_data['dirToShore'])
+  model_params.dist_to_shore    = parse_vp_float(post_data['distToShore'])
+  model_params.dir_to_shore     = parse_vp_float(post_data['dirToShore'])
 
   if debug:
     print("Model Parameters:")
+    print(f"model_params.tpb_coast_bin             :{model_params.tpb_coast_bin}")
     print(f"model_params.report_effective_dillution:{model_params.report_effective_dillution}")
     print(f"model_params.current_vector_averaging  :{model_params.current_vector_averaging  }")
     print(f"model_params.write_step_freq           :{model_params.write_step_freq           }")
@@ -283,6 +300,7 @@ def load_model_params(post_data):
     print(f"model_params.brooks_far_field          :{model_params.brooks_far_field          }")
     print(f"model_params.tidal_pollution_buildup   :{model_params.tidal_pollution_buildup   }")
     print(f"model_params.tpb_channel_width         :{model_params.tpb_channel_width         }")
+    print(f"model_params.farfield_diffusivity         :{model_params.farfield_diffusivity         }")
 
   return model_params
 
@@ -336,33 +354,41 @@ def load_diffuser_params(data_row, diff_timeseries_files):
   """
   debug = False
 
+  # Initiate parameters
   diff_params   = model_um3.params.DiffuserParameters.DiffuserParameters()
 
-  diff_params.diameter          = float(data_row['port_diameter'])
-  diff_params.offset_x          = float(data_row['source_x_coord'])
-  diff_params.offset_y          = float(data_row['source_y_coord'])
-  diff_params.vertical_angle    = float(data_row['vertical_angle'])
-  diff_params.horizontal_angle  = float(data_row['horizontal_angle'])
-  diff_params.num_ports         = float(data_row['num_of_ports'])
-  diff_params.acute_mixing_zone = float(data_row['mix_zone_distance'])
-  diff_params.isopleth          = float(data_row['isopleth_val'])
-  diff_params.depth             = float(data_row['port_depth'])
+  # Non-time series fields
+  diff_params.diameter          = parse_vp_float(data_row['port_diameter'])
+  diff_params.offset_x          = parse_vp_float(data_row['source_x_coord'])
+  diff_params.offset_y          = parse_vp_float(data_row['source_y_coord'])
+  diff_params.vertical_angle    = parse_vp_float(data_row['vertical_angle'])
+  diff_params.horizontal_angle  = parse_vp_float(data_row['horizontal_angle'])
+  diff_params.num_ports         = parse_vp_float(data_row['num_of_ports'])
+  diff_params.acute_mixing_zone = parse_vp_float(data_row['mix_zone_distance'])
+  diff_params.isopleth          = parse_vp_float(data_row['isopleth_val'])
+  diff_params.depth             = parse_vp_float(data_row['port_depth'])
 
-  if not (data_row['port_spacing'] == None or data_row['port_spacing'] == ''):
-    diff_params.port_spacing      = float(data_row['port_spacing'])
+  # Potential time series fields
+  diff_params.port_spacing      = parse_vp_float(data_row['port_spacing'])
+  diff_params.effluent_flow     = parse_vp_float(data_row['effluent_flow'])
+  diff_params.salinity          = parse_vp_float(data_row['effluent_salinity'])
+  diff_params.temperature       = parse_vp_float(data_row['effluent_temp'])
+  diff_params.concentration     = parse_vp_float(data_row['effluent_conc'])
+
+  # if not (data_row['port_spacing'] == None or data_row['port_spacing'] == ''):
+  #   diff_params.port_spacing      = float(data_row['port_spacing'])
   
-  print(f"diff_timeseries_files['effluent_flow']: {diff_timeseries_files['effluent_flow']}")
-  if (diff_timeseries_files['effluent_flow'] == None or diff_timeseries_files['effluent_flow'] == ''):
-    diff_params.effluent_flow     = float(data_row['effluent_flow'])
+  # if (diff_timeseries_files['effluent_flow'] == None or diff_timeseries_files['effluent_flow'] == ''):
+  #   diff_params.effluent_flow     = float(data_row['effluent_flow'])
 
-  if (diff_timeseries_files['effluent_salinity'] == None or diff_timeseries_files['effluent_salinity'] == ''):
-    diff_params.salinity          = float(data_row['effluent_salinity'])
+  # if (diff_timeseries_files['effluent_salinity'] == None or diff_timeseries_files['effluent_salinity'] == ''):
+  #   diff_params.salinity          = float(data_row['effluent_salinity'])
   
-  if (diff_timeseries_files['effluent_temp'] == None or diff_timeseries_files['effluent_temp'] == ''):
-    diff_params.temperature       = float(data_row['effluent_temp'])
+  # if (diff_timeseries_files['effluent_temp'] == None or diff_timeseries_files['effluent_temp'] == ''):
+  #   diff_params.temperature       = float(data_row['effluent_temp'])
 
-  if (diff_timeseries_files['effluent_concentration'] == None or diff_timeseries_files['effluent_concentration'] == ''):
-    diff_params.concentration     = float(data_row['effluent_conc'])
+  # if (diff_timeseries_files['effluent_concentration'] == None or diff_timeseries_files['effluent_concentration'] == ''):
+  #   diff_params.concentration     = float(data_row['effluent_conc'])
 
   if debug:
     print("Diffuser parameters (diff_params):")
@@ -438,44 +464,44 @@ def load_ambient_data(ambient_row,ambient_timeseries_files):
     print(f"far_field_curr_dir      : {ambient_row['far_field_curr_dir']         }")
     print(f"far_field_diff_coeff    : {ambient_row['far_field_diff_coeff']       }")
 
-  ambient_data.z             = float(ambient_row['depth_or_height'])
+  ambient_data.z             = parse_vp_float(ambient_row['depth_or_height'])
 
   # print(f"ambient_timeseries_files['current_speed']: {ambient_timeseries_files['current_speed']}")
   if (ambient_timeseries_files['current_speed'] == None or ambient_timeseries_files['current_speed'] == ''):
     if not (ambient_row['current_speed'] == None or ambient_row['current_speed'] == ''):
-      ambient_data.current_speed = float(ambient_row['current_speed'])
+      ambient_data.current_speed = parse_vp_float(ambient_row['current_speed'])
 
   if (ambient_timeseries_files['current_direction'] == None or ambient_timeseries_files['current_direction'] == ''):
     if not ( ambient_row['current_direction'] == None or ambient_row['current_direction'] == ''):
-      ambient_data.current_dir   = float(ambient_row['current_direction'])
+      ambient_data.current_dir   = parse_vp_float(ambient_row['current_direction'])
   
   if ambient_timeseries_files['ambient_salinity'] == None:
     if not ( ambient_row['ambient_salinity'] == None or ambient_row['ambient_salinity'] == ''):
-      ambient_data.salinity      = float(ambient_row['ambient_salinity'])
+      ambient_data.salinity      = parse_vp_float(ambient_row['ambient_salinity'])
 
   if ambient_timeseries_files['ambient_temperature'] == None:
     if not ( ambient_row['ambient_temperature'] == None or ambient_row['ambient_temperature'] == ''):
-      ambient_data.temperature   = float(ambient_row['ambient_temperature'])
+      ambient_data.temperature   = parse_vp_float(ambient_row['ambient_temperature'])
   
   if ambient_timeseries_files['background_concentration'] == None:
     if not ( ambient_row['background_concentration'] == None or ambient_row['background_concentration'] == ''):
-      ambient_data.bg_conc       = float(ambient_row['background_concentration'])
+      ambient_data.bg_conc       = parse_vp_float(ambient_row['background_concentration'])
 
   if ambient_timeseries_files['pollution_decay_rate'] == None:
     if not ( ambient_row['pollution_decay_rate'] == None or ambient_row['pollution_decay_rate'] == ''):
-      ambient_data.decay_rate    = float(ambient_row['pollution_decay_rate'])
+      ambient_data.decay_rate    = parse_vp_float(ambient_row['pollution_decay_rate'])
 
   if ambient_timeseries_files['far_field_curr_speed'] == None:
     if not ( ambient_row['far_field_curr_speed'] == None or ambient_row['far_field_curr_speed'] == ''):
-      ambient_data.ff_velocity   = float(ambient_row['far_field_curr_speed'])
+      ambient_data.ff_velocity   = parse_vp_float(ambient_row['far_field_curr_speed'])
 
   if ambient_timeseries_files['far_field_curr_dir'] == None:
     if not ( ambient_row['far_field_curr_dir'] == None or ambient_row['far_field_curr_dir'] == ''):
-      ambient_data.ff_dir        = float(ambient_row['far_field_curr_dir'])
+      ambient_data.ff_dir        = parse_vp_float(ambient_row['far_field_curr_dir'])
 
   if ambient_timeseries_files['far_field_diff_coeff'] == None:
     if not ( ambient_row['far_field_diff_coeff'] == None or ambient_row['far_field_diff_coeff'] == ''):
-      ambient_data.ff_diff_coeff = float(ambient_row['far_field_diff_coeff'])
+      ambient_data.ff_diff_coeff = parse_vp_float(ambient_row['far_field_diff_coeff'])
 
   if debug:
     print("Ambient Data (ambient_data):")
@@ -494,13 +520,13 @@ def load_ambient_data(ambient_row,ambient_timeseries_files):
 
 def load_timeseries_data(data):
   """
-    Populate Time Series data handler for presenting to model analysis.
+    Initiate Time Series data handler and populate with diffuser data for presenting to model analysis.
   """
   timeseries_data = model_um3.timeseries.TimeseriesHandler.TimeseriesHandler()
 
-  timeseries_data.start_time           = float(data['diffuserData'][0]['start_time'])
-  timeseries_data.end_time             = float(data['diffuserData'][0]['end_time'])
-  timeseries_data.time_increment       = float(data['diffuserData'][0]['time_increment'])
+  timeseries_data.start_time           = parse_vp_float(data['diffuserData'][0]['start_time'])
+  timeseries_data.end_time             = parse_vp_float(data['diffuserData'][0]['end_time'])
+  timeseries_data.time_increment       = parse_vp_float(data['diffuserData'][0]['time_increment'])
   timeseries_data.units.start_time     = get_unit(data['diffuserStore']['start_time']['value'])
   timeseries_data.units.end_time       = get_unit(data['diffuserStore']['end_time']['value'])
   timeseries_data.units.time_increment = get_unit(data['diffuserStore']['time_increment']['value'])
@@ -516,7 +542,7 @@ def load_ts_ambient_data(ambient_timeseries_files, ambient_store, timeseries, da
     ambient_store.current_dir.z_is_depth     = ts_data['depth_or_height'] == "depth"                 # timeseries may be depth/height layers indepedently
     ambient_store.current_dir.ts_depth_units = get_unit(ts_data['depth_or_height_units'])  # depth units
     ambient_store.current_dir.units          = get_unit(ts_data['measurement_unit'])  # uses same store value, but units for value
-    ambient_store.current_dir.ts_increment   = int(ts_data['increment']) 
+    ambient_store.current_dir.ts_increment   = parse_vp_int(ts_data['increment']) 
     timeseries.ambient.current_dir           = model_um3.timeseries.AmbientTimeseries.AmbientTimeseries(ambient_timeseries_files['current_direction'], ambient_store.current_dir)
   
   if ambient_timeseries_files['current_speed'] != None:
@@ -524,7 +550,7 @@ def load_ts_ambient_data(ambient_timeseries_files, ambient_store, timeseries, da
     ambient_store.current_speed.z_is_depth     = ts_data['depth_or_height'] == "depth"                 # timeseries may be depth/height layers indepedently
     ambient_store.current_speed.ts_depth_units = get_unit(ts_data['depth_or_height_units'])  # depth units
     ambient_store.current_speed.units          = get_unit(ts_data['measurement_unit'])  # uses same store value, but units for value
-    ambient_store.current_speed.ts_increment   = int(ts_data['increment']) 
+    ambient_store.current_speed.ts_increment   = parse_vp_int(ts_data['increment']) 
     timeseries.ambient.current_speed           = model_um3.timeseries.AmbientTimeseries.AmbientTimeseries(ambient_timeseries_files['current_speed'], ambient_store.current_speed)
 
   if ambient_timeseries_files['ambient_salinity'] != None:
@@ -532,7 +558,7 @@ def load_ts_ambient_data(ambient_timeseries_files, ambient_store, timeseries, da
     ambient_store.salinity.z_is_depth         = ts_data['depth_or_height'] == "depth"                 # timeseries may be depth/height layers indepedently
     ambient_store.salinity.ts_depth_units     = get_unit(ts_data['depth_or_height_units'])  # depth units
     ambient_store.salinity.units              = get_unit(ts_data['measurement_unit'])  # uses same store value, but units for value
-    ambient_store.salinity.ts_increment       = int(ts_data['increment']) 
+    ambient_store.salinity.ts_increment       = parse_vp_int(ts_data['increment']) 
     timeseries.ambient.salinity = model_um3.timeseries.AmbientTimeseries.AmbientTimeseries(ambient_timeseries_files['ambient_salinity'], ambient_store.salinity)
 
   if ambient_timeseries_files['ambient_temperature'] != None:
@@ -540,7 +566,7 @@ def load_ts_ambient_data(ambient_timeseries_files, ambient_store, timeseries, da
     ambient_store.temperature.z_is_depth         = ts_data['depth_or_height'] == "depth"                 # timeseries may be depth/height layers indepedently
     ambient_store.temperature.ts_depth_units     = get_unit(ts_data['depth_or_height_units'])  # depth units
     ambient_store.temperature.units              = get_unit(ts_data['measurement_unit'])  # uses same store value, but units for value
-    ambient_store.temperature.ts_increment       = int(ts_data['increment']) 
+    ambient_store.temperature.ts_increment       = parse_vp_int(ts_data['increment']) 
     timeseries.ambient.temperature = model_um3.timeseries.AmbientTimeseries.AmbientTimeseries(ambient_timeseries_files['ambient_temperature'], ambient_store.temperature)
 
   if ambient_timeseries_files['background_concentration'] != None:
@@ -548,7 +574,7 @@ def load_ts_ambient_data(ambient_timeseries_files, ambient_store, timeseries, da
     ambient_store.bg_conc.z_is_depth         = ts_data['depth_or_height'] == "depth"                 # timeseries may be depth/height layers indepedently
     ambient_store.bg_conc.ts_depth_units     = get_unit(ts_data['depth_or_height_units'])  # depth units
     ambient_store.bg_conc.units              = get_unit(ts_data['measurement_unit'])  # uses same store value, but units for value
-    ambient_store.bg_conc.ts_increment       = int(ts_data['increment']) 
+    ambient_store.bg_conc.ts_increment       = parse_vp_int(ts_data['increment']) 
     timeseries.ambient.bg_conc = model_um3.timeseries.AmbientTimeseries.AmbientTimeseries(ambient_timeseries_files['background_concentration'], ambient_store.bg_conc)
 
   if ambient_timeseries_files['pollution_decay_rate'] != None:
@@ -556,7 +582,7 @@ def load_ts_ambient_data(ambient_timeseries_files, ambient_store, timeseries, da
     ambient_store.decay_rate.z_is_depth         = ts_data['depth_or_height'] == "depth"                 # timeseries may be depth/height layers indepedently
     ambient_store.decay_rate.ts_depth_units     = get_unit(ts_data['depth_or_height_units'])  # depth units
     ambient_store.decay_rate.units              = get_unit(ts_data['measurement_unit'])  # uses same store value, but units for value
-    ambient_store.decay_rate.ts_increment       = int(ts_data['increment']) 
+    ambient_store.decay_rate.ts_increment       = parse_vp_int(ts_data['increment']) 
     timeseries.ambient.decay_rate = model_um3.timeseries.AmbientTimeseries.AmbientTimeseries(ambient_timeseries_files['pollution_decay_rate'], ambient_store.decay_rate)
 
   if ambient_timeseries_files['far_field_curr_speed'] != None:
@@ -564,7 +590,7 @@ def load_ts_ambient_data(ambient_timeseries_files, ambient_store, timeseries, da
     ambient_store.ff_velocity.z_is_depth         = ts_data['depth_or_height'] == "depth"                 # timeseries may be depth/height layers indepedently
     ambient_store.ff_velocity.ts_depth_units     = get_unit(ts_data['depth_or_height_units'])  # depth units
     ambient_store.ff_velocity.units              = get_unit(ts_data['measurement_unit'])  # uses same store value, but units for value
-    ambient_store.ff_velocity.ts_increment       = int(ts_data['increment']) 
+    ambient_store.ff_velocity.ts_increment       = parse_vp_int(ts_data['increment']) 
     timeseries.ambient.ff_velocity = model_um3.timeseries.AmbientTimeseries.AmbientTimeseries(ambient_timeseries_files['far_field_curr_speed'], ambient_store.ff_velocity)
 
   if ambient_timeseries_files['far_field_curr_dir'] != None:
@@ -572,7 +598,7 @@ def load_ts_ambient_data(ambient_timeseries_files, ambient_store, timeseries, da
     ambient_store.ff_dir.z_is_depth         = ts_data['depth_or_height'] == "depth"                 # timeseries may be depth/height layers indepedently
     ambient_store.ff_dir.ts_depth_units     = get_unit(ts_data['depth_or_height_units'])  # depth units
     ambient_store.ff_dir.units              = get_unit(ts_data['measurement_unit'])  # uses same store value, but units for value
-    ambient_store.ff_dir.ts_increment       = int(ts_data['increment']) 
+    ambient_store.ff_dir.ts_increment       = parse_vp_int(ts_data['increment']) 
     timeseries.ambient.ff_dir = model_um3.timeseries.AmbientTimeseries.AmbientTimeseries(ambient_timeseries_files['far_field_curr_dir'], ambient_store.ff_dir)
 
   if ambient_timeseries_files['far_field_diff_coeff'] != None:
@@ -580,7 +606,7 @@ def load_ts_ambient_data(ambient_timeseries_files, ambient_store, timeseries, da
     ambient_store.ff_diff_coeff.z_is_depth         = ts_data['depth_or_height'] == "depth"                 # timeseries may be depth/height layers indepedently
     ambient_store.ff_diff_coeff.ts_depth_units     = get_unit(ts_data['depth_or_height_units'])  # depth units
     ambient_store.ff_diff_coeff.units              = get_unit(ts_data['measurement_unit'])  # uses same store value, but units for value
-    ambient_store.ff_diff_coeff.ts_increment       = int(ts_data['increment']) 
+    ambient_store.ff_diff_coeff.ts_increment       = parse_vp_int(ts_data['increment']) 
     timeseries.ambient.ff_diff_coeff = model_um3.timeseries.AmbientTimeseries.AmbientTimeseries(ambient_timeseries_files['far_field_diff_coeff'], ambient_store.ff_diff_coeff)
 
   return (ambient_store, timeseries)
@@ -593,35 +619,35 @@ def load_ts_diffuser_data(diff_timeseries_files, diffuser_store, timeseries, dat
     ts_data = data['diffuserTimeSeries']['port_depth']
     # diffuser_params.effluent_flow             = 0.001 # Can't be 0
     diffuser_store.depth.units        = get_unit(ts_data['measurement_unit'])  # uses same store value, but units for value
-    diffuser_store.depth.ts_increment = int(ts_data['increment'])
+    diffuser_store.depth.ts_increment = parse_vp_int(ts_data['increment'])
     timeseries.diffuser.depth         = model_um3.timeseries.DiffuserTimeseries.DiffuserTimeseries(diff_timeseries_files['port_depth'], diffuser_store.depth)
 
   if diff_timeseries_files['effluent_flow'] != None:
     ts_data = data['diffuserTimeSeries']['effluent_flow']
     # diffuser_params.effluent_flow             = 0.001 # Can't be 0
     diffuser_store.effluent_flow.units        = get_unit(ts_data['measurement_unit'])  # uses same store value, but units for value
-    diffuser_store.effluent_flow.ts_increment = int(ts_data['increment'])
+    diffuser_store.effluent_flow.ts_increment = parse_vp_int(ts_data['increment'])
     timeseries.diffuser.effluent_flow         = model_um3.timeseries.DiffuserTimeseries.DiffuserTimeseries(diff_timeseries_files['effluent_flow'], diffuser_store.effluent_flow)
 
   if diff_timeseries_files['effluent_salinity'] != None:
       ts_data = data['diffuserTimeSeries']['effluent_salinity']
       # diffuser_params.effluent_flow             = 0.001 # Can't be 0
       diffuser_store.salinity.units        = get_unit(ts_data['measurement_unit'])  # uses same store value, but units for value
-      diffuser_store.salinity.ts_increment = int(ts_data['increment'])
+      diffuser_store.salinity.ts_increment = parse_vp_int(ts_data['increment'])
       timeseries.diffuser.salinity         = model_um3.timeseries.DiffuserTimeseries.DiffuserTimeseries(diff_timeseries_files['effluent_salinity'], diffuser_store.salinity)
 
   if diff_timeseries_files['effluent_temp'] != None:
       ts_data = data['diffuserTimeSeries']['effluent_temp']
       # diffuser_params.effluent_flow             = 0.001 # Can't be 0
       diffuser_store.temperature.units        = get_unit(ts_data['measurement_unit'])  # uses same store value, but units for value
-      diffuser_store.temperature.ts_increment = int(ts_data['increment'])
+      diffuser_store.temperature.ts_increment = parse_vp_int(ts_data['increment'])
       timeseries.diffuser.temperature         = model_um3.timeseries.DiffuserTimeseries.DiffuserTimeseries(diff_timeseries_files['effluent_temp'], diffuser_store.temperature)
 
   if diff_timeseries_files['effluent_concentration'] != None:
       ts_data = data['diffuserTimeSeries']['effluent_concentration']
       # diffuser_params.effluent_flow             = 0.001 # Can't be 0
       diffuser_store.concentration.units        = get_unit(ts_data['measurement_unit'])  # uses same store value, but units for value
-      diffuser_store.concentration.ts_increment = int(ts_data['increment'])
+      diffuser_store.concentration.ts_increment = parse_vp_int(ts_data['increment'])
       timeseries.diffuser.concentration         = model_um3.timeseries.DiffuserTimeseries.DiffuserTimeseries(diff_timeseries_files['effluent_concentration'], diffuser_store.concentration)
 
   # print("Timeseries.diffuser.effluent_flow._lines:")
@@ -646,6 +672,8 @@ def run_analysis(request):
   """
   print('Analysis request recieved.')
 
+  debug = False
+
   # Process Run Analysis Request
   if request.method == 'POST':
 
@@ -654,7 +682,17 @@ def run_analysis(request):
     files = request.FILES
 
     # Get model parameters
-    model_params = load_model_params(data)
+    try:
+      model_params = load_model_params(data)
+    except:
+      if debug:
+         traceback.print_exc() 
+      json_response = {
+        "success":False,
+        "error":"Error loading model parameter input, please check Model Selection settings."
+      }
+      return JsonResponse(json_response, status=200, safe=False)
+       
 
     # Establish timeseries variable, set to None for now
     timeseries = None
@@ -667,21 +705,49 @@ def run_analysis(request):
        'effluent_temp': None,
        'effluent_concentration': None
     }
-    if len(files) > 0:
-       timeseries = load_timeseries_data(data)
-       diff_files = list(filter(lambda file: (file.split('-')[1] == 'diffuser'), files))
-       for file in diff_files:
-        field = file.split('-')[0]
-        diff_timeseries_files[field] = get_temp_file_path(request.FILES[file])
+    try:
+      if len(files) > 0:
+        timeseries = load_timeseries_data(data)
+        diff_files = list(filter(lambda file: (file.split('-')[1] == 'diffuser'), files))
+        for file in diff_files:
+          field = file.split('-')[0]
+          diff_timeseries_files[field] = get_temp_file_path(request.FILES[file])
+    except:
+      json_response = {
+        "success":False,
+        "error":"Error processing diffuser time series files, please check timeseries file format(s)."
+      }
+      return JsonResponse(json_response, status=200, safe=False)
 
     # Get diffuser store
-    diffuser_store = load_diffuser_store(data)
+    try:
+      diffuser_store = load_diffuser_store(data)
+    except:
+      json_response = {
+        "success":False,
+        "error":"Error loading diffuser store options, please check options."
+      }
+      return JsonResponse(json_response, status=200, safe=False)
 
     # Get diffuser data
-    diffuser_params = load_diffuser_params(data['diffuserData'][0], diff_timeseries_files)
+    try:
+      diffuser_params = load_diffuser_params(data['diffuserData'][0], diff_timeseries_files)
+    except:
+      json_response = {
+        "success":False,
+        "error":"Error loading diffuser parameter input, please check input and re-run analysis."
+      }
+      return JsonResponse(json_response, status=200, safe=False)
     
     # Populate timeseries
-    (diffuser_store, timeseries) = load_ts_diffuser_data(diff_timeseries_files, diffuser_store, timeseries, data)
+    try:
+      (diffuser_store, timeseries) = load_ts_diffuser_data(diff_timeseries_files, diffuser_store, timeseries, data)
+    except:
+      json_response = {
+        "success":False,
+        "error":"Error loading diffuser time series data, please check time series file data."
+      }
+      return JsonResponse(json_response, status=200, safe=False)
 
     # Get ambient store
     ambient_store = load_ambient_store(data['ambientProfileData'][0]['store'])
@@ -698,22 +764,42 @@ def run_analysis(request):
        'far_field_curr_dir': None,
        'far_field_diff_coeff': None,
     }
-    if len(files) > 0:
-       ambient_files = list(filter(lambda file: (file.split('-')[1] == 'ambient'), files))
-       for file in ambient_files:
-        field = file.split('-')[0]
-        ambient_timeseries_files[field] = get_temp_file_path(request.FILES[file])
+    try:
+      if len(files) > 0:
+        ambient_files = list(filter(lambda file: (file.split('-')[1] == 'ambient'), files))
+        for file in ambient_files:
+          field = file.split('-')[0]
+          ambient_timeseries_files[field] = get_temp_file_path(request.FILES[file])
+    except:
+      json_response = {
+        "success":False,
+        "error":"Error processing ambient time series file(s), please check ambient time series file formatting."
+      }
+      return JsonResponse(json_response, status=200, safe=False)
 
     # Get ambient data
-    ambient_params_list = []
-    for ambient_post_data in data['ambientProfileData'][0]['data']:
-       print(f"ambient_post_data['depth_or_height']: {ambient_post_data['depth_or_height']}")
-       ambient_params = load_ambient_data(ambient_post_data,ambient_timeseries_files)
-       ambient_params_list.append(ambient_params)
-    ambient_stack = list2tuple(ambient_params_list)
+    try:
+      ambient_params_list = []
+      for ambient_post_data in data['ambientProfileData'][0]['data']:
+        ambient_params = load_ambient_data(ambient_post_data,ambient_timeseries_files)
+        ambient_params_list.append(ambient_params)
+      ambient_stack = list2tuple(ambient_params_list)
+    except:
+      json_response = {
+        "success":False,
+        "error":"Error loading ambient condition input options and/or data, please check ambient condition tabs."
+      }
+      return JsonResponse(json_response, status=200, safe=False)
 
     # Populate timeseries
-    (ambient_store, timeseries) = load_ts_ambient_data(ambient_timeseries_files, ambient_store, timeseries, data)
+    try:
+      (ambient_store, timeseries) = load_ts_ambient_data(ambient_timeseries_files, ambient_store, timeseries, data)
+    except:
+      json_response = {
+        "success":False,
+        "error":"Error loading ambient time series data, please check ambient time series file data."
+      }
+      return JsonResponse(json_response, status=200, safe=False)
 
     # print(f"diff_store.effluent_flow.units: {diffuser_store.effluent_flow.units}")
     # print(f"ambient_store.current_dir.units: {ambient_store.current_dir.units}")
@@ -725,23 +811,30 @@ def run_analysis(request):
     # added will be the same as the order of values in the output list. You do also need to know the `regime` and var name,
     # so the output handler knows where to grab the values from. This may have to come from a hard-coded list of allowed
     # vars to track, so I will have to provide it for UI later.
-    output_handler = model_um3.OutputUM3()
-    output_handler.add_parameter('element', 'depth',          'Depth',     model_um3.units.Length,        diffuser_store.depth.units)
-    output_handler.add_parameter('element', 'diameter',       'Width',     model_um3.units.Length,        diffuser_store.diameter.units)
-    output_handler.add_parameter('element', 'vertical_angle', 'V-angle',   model_um3.units.Angle,         diffuser_store.vertical_angle.units)
-    output_handler.add_parameter('element', 'salinity',       'Salinity',  model_um3.units.Salinity,      ambient_store.salinity.units)
-    output_handler.add_parameter('element', 'temperature',    'Temp.',     model_um3.units.Temperature,   ambient_store.temperature.units)
-    output_handler.add_parameter('element', 'concentration',  'Pollutant', model_um3.units.Concentration, diffuser_store.concentration.units)
-    output_handler.add_parameter('element', 'density',        'Density',   model_um3.units.Density,       model_um3.units.Density.SIGMA_T)
-    output_handler.add_parameter('ambient', 'density',        'Amb-den',   model_um3.units.Density,       model_um3.units.Density.SIGMA_T)
-    output_handler.add_parameter('ambient', 'current_speed',  'Amb-cur',   model_um3.units.Speed,         ambient_store.current_speed.units)
-    output_handler.add_parameter('element', 'speed',          'Velocity',  model_um3.units.Speed,         model_um3.units.Speed.METERS_PER_SECOND)
-    output_handler.add_parameter('element', 'dilution',       'Dilution',  model_um3.units.Unitless,      model_um3.units.Unitless.UNITLESS)
-    output_handler.add_parameter('element', 'x_displacement', 'X-pos',     model_um3.units.Length,        model_um3.units.Length.FEET)
-    output_handler.add_parameter('element', 'y_displacement', 'Y-pos',     model_um3.units.Length,        model_um3.units.Length.FEET)
-    # output_handler.add_parameter('element', 'mass',           'Mass',      units.Mass,          units.Mass.KILOGRAMS)
-    # output_handler.add_parameter('element', 'd_mass',         'Entrained', units.Mass,          units.Mass.KILOGRAMS)
-    output_handler.add_parameter('model',    'iso_diameter',  'Iso diameter', model_um3.units.Length,     diffuser_store.diameter.units)
+    try:
+      output_handler = model_um3.OutputUM3()
+      output_handler.add_parameter('element', 'depth',          'Depth',     model_um3.units.Length,        diffuser_store.depth.units)
+      output_handler.add_parameter('element', 'diameter',       'Width',     model_um3.units.Length,        diffuser_store.diameter.units)
+      output_handler.add_parameter('element', 'vertical_angle', 'V-angle',   model_um3.units.Angle,         diffuser_store.vertical_angle.units)
+      output_handler.add_parameter('element', 'salinity',       'Salinity',  model_um3.units.Salinity,      ambient_store.salinity.units)
+      output_handler.add_parameter('element', 'temperature',    'Temp.',     model_um3.units.Temperature,   ambient_store.temperature.units)
+      output_handler.add_parameter('element', 'concentration',  'Pollutant', model_um3.units.Concentration, diffuser_store.concentration.units)
+      output_handler.add_parameter('element', 'density',        'Density',   model_um3.units.Density,       model_um3.units.Density.SIGMA_T)
+      output_handler.add_parameter('ambient', 'density',        'Amb-den',   model_um3.units.Density,       model_um3.units.Density.SIGMA_T)
+      output_handler.add_parameter('ambient', 'current_speed',  'Amb-cur',   model_um3.units.Speed,         ambient_store.current_speed.units)
+      output_handler.add_parameter('element', 'speed',          'Velocity',  model_um3.units.Speed,         model_um3.units.Speed.METERS_PER_SECOND)
+      output_handler.add_parameter('element', 'dilution',       'Dilution',  model_um3.units.Unitless,      model_um3.units.Unitless.UNITLESS)
+      output_handler.add_parameter('element', 'x_displacement', 'X-pos',     model_um3.units.Length,        model_um3.units.Length.FEET)
+      output_handler.add_parameter('element', 'y_displacement', 'Y-pos',     model_um3.units.Length,        model_um3.units.Length.FEET)
+      # output_handler.add_parameter('element', 'mass',           'Mass',      units.Mass,          units.Mass.KILOGRAMS)
+      # output_handler.add_parameter('element', 'd_mass',         'Entrained', units.Mass,          units.Mass.KILOGRAMS)
+      output_handler.add_parameter('model',    'iso_diameter',  'Iso diameter', model_um3.units.Length,     diffuser_store.diameter.units)
+    except:
+      json_response = {
+        "success":False,
+        "error":"Error initializing UM3 model, please contact site administrators."
+      }
+      return JsonResponse(json_response, status=200, safe=False)
     
     # Start Model Analysis
     try:
@@ -755,7 +848,7 @@ def run_analysis(request):
         output_handler     = output_handler
       )
     except Exception as e:
-      print("Error running model:")
+      print("Error running model analysis:")
       print(e)
       json_response = {
         "success":False,
@@ -779,7 +872,7 @@ def run_analysis(request):
         }
         return JsonResponse(json_response, status=200, safe=False)
     else:
-        print("Unknown error")
+        print("Unknown error running model analysis")
 
 
     # Write CSV files
@@ -791,15 +884,6 @@ def run_analysis(request):
     #   - output_{ts}.plume.csv
     #   - output_{ts}.farfield.csv
     #   - output_{ts}.tpb.txt
-    output_file_formats = [
-      'params.txt',
-      'diffuser.csv',
-      'ambient.csv',
-      'memos.txt',
-      'plume.csv',
-      'farfield.csv',
-      'tpb.txt',
-    ]
     dt = datetime.now()
     ts = datetime.timestamp(dt) # model_run_id
     try:
@@ -829,8 +913,6 @@ def run_analysis(request):
       output_dict['output_id'] = ts
     
     except:
-      # print("Error obtaining CSV output:")
-      # traceback.print_exc()
       json_response = {
         "success":False,
         "error":"Visual Plumes failed to write CSV files."
